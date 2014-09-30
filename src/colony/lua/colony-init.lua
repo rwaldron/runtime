@@ -401,10 +401,24 @@ local js_null = {
 
 local function js_void () end
 
+
+local function builtin (arg)
+  local mt = getmetatable(arg)
+  local proto = mt.proto
+
+  if proto == nil then
+    return false
+  end
+
+  return proto ~= obj_proto and proto ~= func_proto and proto ~= bool_proto and proto ~= num_proto and proto ~= str_proto and proto ~= arr_proto and proto ~= regex_proto and proto ~= date_proto
+end
+
+
 -- a = object, b = last value
 local function js_next (a, b, c)
   local len = rawget(a, 'length')
   local mt = getmetatable(a)
+  local proto = mt.proto;
 
   -- first value in arrays should be 0
   if b == nil and type(len) == 'number' and len > 0 then
@@ -418,10 +432,21 @@ local function js_next (a, b, c)
     end
     b = nil
   end
+
   local k = b
+
   repeat
     k = next(a, k)
-  until (len == nil or type(k) ~= 'number') and not (k == 'length' and mt.proto == arr_proto) and not (type(a) == 'function' and k == '__mt')
+  until (len == nil or type(k) ~= 'number') and not (k == 'length' and proto == arr_proto) and not (type(a) == 'function' and k == '__mt')
+
+  if k == undefined and type(proto) == 'table' and builtin(a) ~= false then
+    for pk, v in next, proto do
+      if pk ~= 'constructor' then
+        k = pk;
+      end
+    end
+  end
+
   return k
 end
 
